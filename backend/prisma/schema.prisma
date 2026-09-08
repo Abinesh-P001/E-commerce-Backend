@@ -1,0 +1,244 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  name      String
+  email     String   @unique
+  password  String
+  phone     String?
+  role      Role     @default(CUSTOMER)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  addresses Address[]
+  cart      Cart?
+  orders    Order[]
+  reviews   Review[]
+  wishlist  Wishlist?
+
+  @@map("users")
+}
+
+model Category {
+  id          Int      @id @default(autoincrement())
+  name        String
+  slug        String   @unique
+  description String?  @db.Text
+  image       String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  products    Product[]
+
+  @@map("categories")
+}
+
+model Product {
+  id                  Int      @id @default(autoincrement())
+  name                String
+  slug                String   @unique
+  description         String   @db.Text
+  price               Decimal  @db.Decimal(10, 2)
+  discountPrice       Decimal? @db.Decimal(10, 2)
+  stock               Int      @default(0)
+  weight              String
+  unit                String   @default("ml")
+  ingredients         String?  @db.Text
+  nutrition           String?  @db.Text
+  storageInstructions String?  @db.Text
+  deliveryInformation String?  @db.Text
+  mainImage           String
+  active              Boolean  @default(true)
+  categoryId          Int
+  category            Category       @relation(fields: [categoryId], references: [id])
+  images              ProductImage[]
+  reviews             Review[]
+  cartItems           CartItem[]
+  orderItems          OrderItem[]
+  wishlistItems       WishlistItem[]
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+
+  @@index([categoryId])
+  @@map("products")
+}
+
+model ProductImage {
+  id         Int       @id @default(autoincrement())
+  productId  Int
+  imageUrl   String
+  imageIndex Int       @default(0)
+  imageType  ImageType @default(GALLERY)
+  product    Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  createdAt  DateTime  @default(now())
+
+  @@index([productId, imageType])
+  @@map("product_images")
+}
+
+model Cart {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items     CartItem[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("carts")
+}
+
+model CartItem {
+  id        Int      @id @default(autoincrement())
+  cartId    Int
+  productId Int
+  quantity  Int      @default(1)
+  price     Decimal  @db.Decimal(10, 2)
+  cart      Cart     @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([cartId])
+  @@index([productId])
+  @@map("cart_items")
+}
+
+model Address {
+  id          Int      @id @default(autoincrement())
+  userId      Int
+  fullName    String
+  phone       String
+  addressLine String
+  city        String
+  state       String
+  pincode     String
+  isDefault   Boolean  @default(false)
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  orders      Order[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId])
+  @@map("addresses")
+}
+
+model Order {
+  id               Int           @id @default(autoincrement())
+  userId           Int
+  addressId        Int
+  totalAmount      Decimal       @db.Decimal(10, 2)
+  shippingAmount   Decimal       @default(0.00) @db.Decimal(10, 2)
+  discountAmount   Decimal       @default(0.00) @db.Decimal(10, 2)
+  orderStatus      OrderStatus   @default(PENDING)
+  paymentStatus    PaymentStatus @default(PENDING)
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  cancelReason     String?       @db.Text
+  cancelSuggestion String?       @db.Text
+  user             User          @relation(fields: [userId], references: [id])
+  address          Address       @relation(fields: [addressId], references: [id])
+  items            OrderItem[]
+  payment          Payment?
+
+  @@index([userId])
+  @@index([addressId])
+  @@map("orders")
+}
+
+model OrderItem {
+  id        Int     @id @default(autoincrement())
+  orderId   Int
+  productId Int
+  quantity  Int
+  price     Decimal @db.Decimal(10, 2)
+  order     Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@index([productId])
+  @@map("order_items")
+}
+
+model Payment {
+  id                Int           @id @default(autoincrement())
+  orderId           Int           @unique
+  razorpayOrderId   String?
+  razorpayPaymentId String?
+  amount            Decimal       @db.Decimal(10, 2)
+  paymentMethod     String        @default("ONLINE")
+  paymentStatus     PaymentStatus @default(PENDING)
+  order             Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  createdAt         DateTime      @default(now())
+
+  @@map("payments")
+}
+
+model Review {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  productId Int
+  rating    Int
+  comment   String?  @db.Text
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([productId])
+  @@index([userId])
+  @@map("reviews")
+}
+
+model Wishlist {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items     WishlistItem[]
+  createdAt DateTime @default(now())
+
+  @@map("wishlists")
+}
+
+model WishlistItem {
+  id         Int      @id @default(autoincrement())
+  wishlistId Int
+  productId  Int
+  wishlist   Wishlist @relation(fields: [wishlistId], references: [id], onDelete: Cascade)
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+
+  @@unique([wishlistId, productId])
+  @@index([productId], map: "wishlist_items_productId_fkey")
+  @@map("wishlist_items")
+}
+
+enum Role {
+  CUSTOMER
+  ADMIN
+}
+
+enum ImageType {
+  MAIN
+  GALLERY
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
